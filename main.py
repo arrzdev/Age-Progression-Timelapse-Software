@@ -20,7 +20,7 @@ sample_images = [f for f in listdir(folder) if isfile(join(folder, f))]
 example_image = cv2.imread(f"{folder}/{sample_images[0]}")
 BASE_RESOLUTION = (example_image.shape[1], example_image.shape[0])
 
-def run_detection(image, value=None):
+def run_detection(image):
     #crop the image
     cropped = image[STARTING_NOSE_Y:STARTING_NOSE_Y+MAX_NOSE_H, STARTING_NOSE_X:STARTING_NOSE_X+MAX_NOSE_W]
 
@@ -29,15 +29,15 @@ def run_detection(image, value=None):
 
     #run detection
     nose_rects = nose_model.detectMultiScale(
-        gray,
-        scaleFactor=1.1,
-        minNeighbors=2,
-        minSize=(300, 300)
+      gray,
+      scaleFactor=1.1,
+      minNeighbors=2,
+      minSize=(300, 300)
     )
 
     #if we do not find any hits return an empty tuple
     if not len(nose_rects):
-        return ()
+      return False
 
     #sort them based on the x coordinate so that we can later choose the one 
     #that is in the middle
@@ -49,32 +49,33 @@ def run_detection(image, value=None):
     #get coords for (x,y,w,h) the middle nose:
     (x,y,w,h) = sorted_noses[middle_index-1]
     
-    #normalize coords to the original size before being cropped
-    return (x+STARTING_NOSE_X, y+STARTING_NOSE_Y, w, h)
-
+    #normalize coords to the uncropped image
+    return {
+      "position": (x+STARTING_NOSE_X, y+STARTING_NOSE_Y),
+      "size": (w, h)
+    }
 
 def run_ratio_test():
-    yes = 0
-    no = 0
+  yes = 0
+  no = 0
 
-    for i in sample_images:
-        image = cv2.imread(f"{folder}/{i}")
+  for i in sample_images:
+    image = cv2.imread(f"{folder}/{i}")
 
-        nose_coords = run_detection(image)
+    nose_coords = run_detection(image)
 
-        if len(nose_coords) :
-            yes += 1
-        else:
-            no += 1
+    if len(nose_coords) :
+      yes += 1
+    else:
+      no += 1
 
-        current_ratio = yes / (yes + no)
-        
-        system(f"title [{sample_images.index(i)}] - (cr:{round(current_ratio, 2)})")
+    current_ratio = yes / (yes + no)
+    
+    system(f"title [{sample_images.index(i)}] - (cr:{round(current_ratio, 2)})")
 
-    return current_ratio
+  return current_ratio
 
 def show_images():
-
     time_line = []
     i = 0
 
@@ -119,49 +120,49 @@ def show_images():
         cv2.destroyAllWindows()
 
 def brute_force_test():
-    #brute scales
-    best_value = 0
-    best_ratio = 0
- 
-    for value in range(50, 150, 10):
-        current_ratio = run_ratio_test(value)
+  #brute scales
+  best_value = 0
+  best_ratio = 0
 
-        #check if it is better
-        if current_ratio > best_ratio:
-            best_ratio = current_ratio
-            best_value = value
+  for value in range(50, 150, 10):
+    current_ratio = run_ratio_test(value)
 
-        print(f"Best value: {best_value} with ratio: {best_ratio}")
+    #check if it is better
+    if current_ratio > best_ratio:
+      best_ratio = current_ratio
+      best_value = value
 
-    input()
+    print(f"Best value: {best_value} with ratio: {best_ratio}")
+
+  input()
 
 def get_compile_resolution():
-    max_x_deviation = 0
-    max_y_deviation = 0
+  max_x_deviation = 0
+  max_y_deviation = 0
 
-    for i in sample_images:
-        image = cv2.imread(f"{folder}/{i}")
+  for i in sample_images:
+    image = cv2.imread(f"{folder}/{i}")
 
-        nose_coords = run_detection(image)
+    nose_coords = run_detection(image)
 
-        if not (len(nose_coords)):
-            continue
+    if not (len(nose_coords)):
+      continue
 
-        (x, y) = nose_coords[0], nose_coords[1]
+    (x, y) = nose_coords[0], nose_coords[1]
 
-        x_deviation = abs(x - BASE_RESOLUTION[0]/2)
-        y_deviation = abs(y - BASE_RESOLUTION[1]/2)
+    x_deviation = abs(x - BASE_RESOLUTION[0]/2)
+    y_deviation = abs(y - BASE_RESOLUTION[1]/2)
 
-        if x_deviation > max_x_deviation:
-            max_x_deviation = x_deviation
+    if x_deviation > max_x_deviation:
+      max_x_deviation = x_deviation
 
-        if y_deviation > max_y_deviation:
-            max_y_deviation = y_deviation
+    if y_deviation > max_y_deviation:
+      max_y_deviation = y_deviation
 
-        print(f"{sample_images.index(i)}")
+    print(f"{sample_images.index(i)}")
 
-    return (BASE_RESOLUTION[0] - max_x_deviation, BASE_RESOLUTION[1] - max_y_deviation)
+  return (BASE_RESOLUTION[0] - max_x_deviation, BASE_RESOLUTION[1] - max_y_deviation)
 
 
 if __name__ == "__main__":
-    show_images()
+  show_images()
