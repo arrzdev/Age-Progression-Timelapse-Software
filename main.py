@@ -2,26 +2,19 @@ import cv2
 from os import listdir, system
 from os.path import isfile, join
 
+SCALE_FACTOR = 0.2
+ 
+#define the model optimization variables
+STARTING_NOSE_X = 625
+STARTING_NOSE_Y = 1000
+MAX_NOSE_W = 875
+MAX_NOSE_H = 750
+
 # Load the models
 nose_model = cv2.CascadeClassifier('./models/nose.xml')
 
 folder = "./images"
 sample_images = [f for f in listdir(folder) if isfile(join(folder, f))]
-
-#image scale factor
-SF = 0.2
-
-#starting section (x) 
-NX = 625
-
-#starting section (y)
-NY = 1000
-
-#max nose with
-NW = 875
-
-#max nose height
-NH = 750
 
 #get base resolution
 example_image = cv2.imread(f"{folder}/{sample_images[0]}")
@@ -29,7 +22,7 @@ BASE_RESOLUTION = (example_image.shape[1], example_image.shape[0])
 
 def run_detection(image, value=None):
     #crop the image
-    cropped = image[NY:NY+NH, NX:NX+NW]
+    cropped = image[STARTING_NOSE_Y:STARTING_NOSE_Y+MAX_NOSE_H, STARTING_NOSE_X:STARTING_NOSE_X+MAX_NOSE_W]
 
     #change to gray tons
     gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
@@ -57,7 +50,7 @@ def run_detection(image, value=None):
     (x,y,w,h) = sorted_noses[middle_index-1]
     
     #normalize coords to the original size before being cropped
-    return (x+NX, y+NY, w, h)
+    return (x+STARTING_NOSE_X, y+STARTING_NOSE_Y, w, h)
 
 
 def run_ratio_test():
@@ -103,7 +96,7 @@ def show_images():
         cv2.circle(image, (int(nose_coords[0]+(nose_coords[2]/2)), int(nose_coords[1]+(nose_coords[3]/2))), 15, (0,0,255), -1)
 
         #scale down to display
-        image = cv2.resize(image, None, fx=SF, fy=SF, interpolation=cv2.INTER_AREA)
+        image = cv2.resize(image, None, fx=SCALE_FACTOR, fy=SCALE_FACTOR, interpolation=cv2.INTER_AREA)
 
         #display the image with the circle
         cv2.imshow(f"{nose_coords}", image)
