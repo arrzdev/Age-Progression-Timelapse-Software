@@ -21,39 +21,48 @@ example_image = cv2.imread(f"{folder}/{sample_images[0]}")
 BASE_RESOLUTION = (example_image.shape[1], example_image.shape[0])
 
 def run_detection(image):
-    #crop the image
-    cropped = image[STARTING_NOSE_Y:STARTING_NOSE_Y+MAX_NOSE_H, STARTING_NOSE_X:STARTING_NOSE_X+MAX_NOSE_W]
+  #crop the image
+  cropped = image[STARTING_NOSE_Y:STARTING_NOSE_Y+MAX_NOSE_H, STARTING_NOSE_X:STARTING_NOSE_X+MAX_NOSE_W]
 
-    #change to gray tons
-    gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+  #change to gray tons
+  gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
 
-    #run detection
-    nose_rects = nose_model.detectMultiScale(
-      gray,
-      scaleFactor=1.1,
-      minNeighbors=2,
-      minSize=(300, 300)
-    )
+  #run detection
+  nose_rects = nose_model.detectMultiScale(
+    gray,
+    scaleFactor=1.1,
+    minNeighbors=2,
+    minSize=(300, 300)
+  )
 
-    #if we do not find any hits return an empty tuple
-    if not len(nose_rects):
-      return False
+  #if we do not find any hits return an empty tuple
+  if not len(nose_rects):
+    return False
 
-    #sort them based on the x coordinate so that we can later choose the one 
-    #that is in the middle
-    sorted_noses = sorted(nose_rects, key=lambda element: element[0])
+  #sort them based on the x coordinate so that we can later choose the one 
+  #that is in the middle
+  sorted_noses = sorted(nose_rects, key=lambda element: element[0])
 
-    #choose the middle one
-    middle_index = (len(sorted_noses) // 2)
-     
-    #get coords for (x,y,w,h) the middle nose:
-    (x,y,w,h) = sorted_noses[middle_index-1]
-    
-    #normalize coords to the uncropped image
-    return {
-      "position": (x+STARTING_NOSE_X, y+STARTING_NOSE_Y),
-      "size": (w, h)
-    }
+  #choose the middle one
+  middle_index = (len(sorted_noses) // 2)
+  
+  #get coords for (x,y,w,h) the middle nose:
+  (x,y,w,h) = sorted_noses[middle_index-1]
+  
+  nose_cords = {
+    "position": (STARTING_NOSE_X + x, STARTING_NOSE_Y + y),
+    "size": (w, h)
+  }
+
+  #if the one that is more in the middle is to away from the center of the image we consider it a miss
+  distance_to_mx = abs(x - MAX_NOSE_W/2)
+  distance_to_my = abs(y - MAX_NOSE_H/2)
+
+  if max(distance_to_mx, distance_to_my) > 300:
+    print(distance_to_mx, distance_to_my)
+    return False
+  
+  return nose_cords
 
 def run_ratio_test():
   yes = 0
@@ -76,48 +85,62 @@ def run_ratio_test():
   return current_ratio
 
 def show_images():
-    time_line = []
-    i = 0
+  time_line = []
+  i = 0
 
-    while i < len(sample_images):
-        image_name = sample_images[i]
+  print(""" 
+  Controls:
+  q - previous
+  e - next
+  backspace - exit
+  """)
 
-        image = cv2.imread(f"{folder}/{image_name}")
-        nose_coords = run_detection(image)
+  while i < len(sample_images):
+    image_name = sample_images[i]
 
-        if not len(nose_coords):
-            i += 1
-            continue
+    image = cv2.imread(f"{folder}/{image_name}")
+    nose_coords = run_detection(image)
 
-        #append the current image to the "time" line
-        elif i not in time_line:
-            time_line.append(i)
+    if not nose_coords:
+      print(f"Missed [{i}]: {image_name}")
+      i += 1
+      continue
 
-        #draw the circle on the nose
-        cv2.circle(image, (int(nose_coords[0]+(nose_coords[2]/2)), int(nose_coords[1]+(nose_coords[3]/2))), 15, (0,0,255), -1)
+    #append the current image to the "time" line
+    elif i not in time_line:
+      time_line.append(i)
 
-        #scale down to display
-        image = cv2.resize(image, None, fx=SCALE_FACTOR, fy=SCALE_FACTOR, interpolation=cv2.INTER_AREA)
+    nose_x, nose_y = nose_coords["position"]
+    nose_w, nose_h = nose_coords["size"]
 
-        #display the image with the circle
-        cv2.imshow(f"{nose_coords}", image)
+    #draw the circle on the nose
+    # if CIRCLE_RADIUS > 0:
+    dynamic_circle_radius = int(max(nose_w, nose_h) / 2)
 
-        #controls
-        while True:
-            pressed_key = cv2.waitKey(0)
+    cv2.circle(image, (int(nose_x+(nose_w/2)), int(nose_y+(nose_h/2))), dynamic_circle_radius, (0,0,255), -1)
 
-            if pressed_key == 8: #backspace - exit
-                quit()
+    #scale down to display
+    image = cv2.resize(image, None, fx=SCALE_FACTOR, fy=SCALE_FACTOR, interpolation=cv2.INTER_AREA)
 
-            elif pressed_key == 113: #q - previous
-                i = time_line[time_line.index(i) - 1]
-                break
+    #display the image with the circle
+    cv2.imshow(f"{nose_coords}", image)
 
-            elif pressed_key == 101: #e - next
-                i += 1
-                break
+    #controls
+    while True:
+      pressed_key = cv2.waitKey(0)
 
-        cv2.destroyAllWindows()
+      if pressed_key == 8: #backspace - exit
+        quit()
+
+      elif pressed_key == 113: #q - previous
+        i = time_line[time_line.index(i) - 1]
+        break
+
+      elif pressed_key == 101: #e - next
+        i += 1
+        break
+
+    cv2.destroyAllWindows()
 
 def brute_force_test():
   #brute scales
